@@ -17,10 +17,14 @@ type DatabaseGeneric struct {
 
 type Checklist struct {
 	DatabaseGeneric
+	Items	[]ChecklistItem	`db:"-"`
 }
 
 type ChecklistItem struct {
+	DatabaseGeneric
+	ChecklistId int64 `db:"checklist_id" json:"checklist_id"`
 	Completed bool `db:"completed" json:"completed"`
+	CompletedDate time.Time `db:"completed_date" json:"completed_date"`
 }
 
 var dbmap = initDb()
@@ -32,6 +36,7 @@ func initDb() *gorp.DbMap {
 	}
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}
 	dbmap.AddTableWithName(Checklist{}, "checklist").SetKeys(true, "Id")
+	dbmap.AddTableWithName(ChecklistItem{}, "checklist_item").SetKeys(true, "Id")
 	err = dbmap.CreateTablesIfNotExists()
 	checkErr(err, "Create tables failed")
 	return dbmap
@@ -44,6 +49,7 @@ func main() {
 		v1.GET("/checklist", GetChecklists)
 		v1.GET("/checklist/:id", GetChecklist)
 		v1.POST("/checklist", PostChecklist)
+		v1.POST("/checklist/:id", PostChecklistItem)
 		v1.PUT("/checklist/:id", UpdateChecklist)
 		v1.DELETE("/checklist/:id", DeleteChecklist)
 	}
@@ -62,18 +68,30 @@ func GetChecklists(c *gin.Context) {
 
 	// curl -i http://localhost:8080/api/v1/checklist
 }
-func GetChecklist(c *gin.Context) {
-	id := c.Params.ByName("id")
-	user_id, err := strconv.ParseInt(id, 0, 64)
-	var checklists []Checklist
+func findChecklist(x string) Checklist {
+	user_id, err := strconv.ParseInt(x, 0, 64)
+	var checklist Checklist
 	if err != nil {
-		_, err = dbmap.Select(&checklists, "select * from checklist where name=$1", id)
+		err = dbmap.SelectOne(&checklist, "select * from checklist where name=$1", x)
 		checkErr(err, "select failed")
 	} else {
-		_, err = dbmap.Select(&checklists, "select * from checklist where id=$1", user_id)
+		err = dbmap.SelectOne(&checklist, "select * from checklist where id=$1", user_id)
 		checkErr(err, "select failed")
 	}
-	c.JSON(200, checklists)
+	checklist.Items =  findChecklistItems(checklist)
+	return checklist
+
+}
+func findChecklistItems(parent Checklist) []ChecklistItem {
+	var items []ChecklistItem
+	_, err := dbmap.Select(&items,"select * from checklist_item where checklist_id=$1", parent.Id)
+	checkErr(err, "couldnt get children")
+	return items
+}
+
+func GetChecklist(c *gin.Context) {
+	checklist := findChecklist(c.Params.ByName("id"))
+	c.JSON(200, checklist)
 	// curl -i http://localhost:8080/api/v1/checklist/1
 }
 func PostChecklist(c *gin.Context) {
@@ -89,6 +107,23 @@ func PostChecklist(c *gin.Context) {
 	} else {
 		c.JSON(500, gin.H{"result": "An error occured"})
 	}
+}
+
+func PostChecklistItem(c *gin.Context) {
+        var json ChecklistItem
+        c.Bind(&json)
+        checklist := findChecklist(c.Params.ByName("id"))
+
+        checklistItem := createChecklistItem(json, checklist)
+        if checklistItem.Name == json.Name {
+                content := gin.H{
+                        "result": "Success",
+                        "name": checklistItem.Name,
+                        }
+                c.JSON(201, content)
+        } else {
+                c.JSON(500, gin.H{"result": "An error occured"})
+        }
 }
 
 func UpdateChecklist(c *gin.Context) {
@@ -109,9 +144,23 @@ func createChecklist(item Checklist) Checklist {
 			Created: time.Now(),
 			Modified: time.Now(),
 		},
+		Items: []ChecklistItem{},
 	}
 	err := dbmap.Insert(&checklist)
 	checkErr(err, "create failed")
 	return checklist
+}
+func createChecklistItem(item ChecklistItem, checklist Checklist) ChecklistItem {
+	checklistItem := ChecklistItem{
+		ChecklistId: checklist.Id,
+	        DatabaseGeneric: DatabaseGeneric{	
+			Name: item.Name,
+			Created: time.Now(),
+			Modified: time.Now(),
+		},
+	}
+	err := dbmap.Insert(&checklistItem)
+	checkErr(err, "create failed")
+	return checklistItem
 }
 
