@@ -2,16 +2,15 @@ package main
 
 import "github.com/gin-gonic/gin"
 import "time"
-import "encoding/json"
-import "fmt"
+import "os"
+//import "encoding/json"
+// import "fmt"
 import "log"
 import "strconv"
 import "database/sql"
 import _ "github.com/lib/pq"
 import "gopkg.in/gorp.v1"
-import (
-consulapi "github.com/hashicorp/consul/api"
-)
+// import ( consulapi "github.com/hashicorp/consul/api")
 
 type DatabaseGeneric struct {
 	Id       int64     `db:"id" json:"id"`
@@ -32,8 +31,7 @@ type ChecklistItem struct {
 	CompletedDate time.Time `db:"completed_date" json:"completed_date"`
 }
 
-var consul = initConfig()
-var catalog = consul.Catalog()
+var dbConnStr = os.Getenv("CHECKLIST_DB")
 var dbmap = initDb()
 
 func main() {
@@ -182,27 +180,9 @@ func findChecklistItems(parent Checklist) []ChecklistItem {
         return items
 }
 
-func initConfig() *consulapi.Client {
-	config := consulapi.DefaultConfig()
-	config.Address = "consul.svc.everyonce.com"
-	consul, err := consulapi.NewClient(config)
-	checkErr(err, "consul connect failed")
-	return consul
-}
 func initDb() *gorp.DbMap {
 	_ = "breakpoint"
-	postgres, meta, err := catalog.Service("postgres", "", nil)
-	checkErr(err, "Create consul failed")
-		if meta.LastIndex == 0 {
-			fmt.Printf("Bad: %v", meta)
-		}
-
-		if len(postgres) == 0 {
-			fmt.Printf("Bad: %v", postgres)
-		}
-	json.MarshalIndent(postgres, "", "    ")
-	connStr := fmt.Sprintf("postgres://postgres:password@localhost:%d?sslmode=disable", postgres[0].ServicePort)
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("postgres", dbConnStr)
 	if err != nil {
 		log.Fatal(err)
 	}
