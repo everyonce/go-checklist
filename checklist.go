@@ -1,14 +1,14 @@
 package main
 
-import "gitlab.svc.everyonce.com/everyonce/go-checklist/Godeps/_workspace/src/github.com/gin-gonic/gin"
+import "github.com/gin-gonic/gin"
 import "fmt"
 import "time"
 import "os"
 import "log"
 import "strconv"
 import "database/sql"
-import _ "gitlab.svc.everyonce.com/everyonce/go-checklist/Godeps/_workspace/src/github.com/lib/pq"
-import "gitlab.svc.everyonce.com/everyonce/go-checklist/Godeps/_workspace/src/gopkg.in/gorp.v1"
+import _ "github.com/lib/pq"
+import "gopkg.in/gorp.v1"
 
 type DatabaseGeneric struct {
 	Id       int64     `db:"id" json:"id"`
