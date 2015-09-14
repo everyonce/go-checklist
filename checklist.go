@@ -20,6 +20,7 @@ type DatabaseGeneric struct {
 type Checklist struct {
 	DatabaseGeneric
 	Items []ChecklistItem `db:"-"`
+	Owner	string     `db:"owner" json:"owner"`
 }
 
 type ChecklistItem struct {
@@ -40,6 +41,7 @@ func main() {
 	v1 := r.Group("api/v1")
 	{
 		v1.GET("/checklist", GetChecklists)
+		v1.GET("/checklistByOwner/:owner", GetChecklists)
 		v1.GET("/checklist/:id", GetChecklist)
 		v1.POST("/checklist", PostChecklist)
 		v1.POST("/checklist/:id", PostChecklistItem)
@@ -56,7 +58,12 @@ func main() {
 
 func GetChecklists(c *gin.Context) {
 	var checklists []Checklist
-	_, err := dbmap.Select(&checklists, "select * from checklist")
+	var err error
+	if c.Params.ByName("owner")=="" {
+		_, err = dbmap.Select(&checklists, "select * from checklist")
+	} else {
+		_, err = dbmap.Select(&checklists, "select * from checklist where owner=$1", c.Params.ByName("owner"))
+	}
 	checkErr(err, "select failed")
 	c.JSON(200, checklists)
 	// curl -i http://localhost:8080/api/v1/checklist
@@ -74,6 +81,7 @@ func PostChecklist(c *gin.Context) {
 		content := gin.H{
 			"result": "Success",
 			"name":   checklist.Name,
+			"owner":   checklist.Owner,
 		}
 		c.JSON(201, content)
 	} else {
@@ -136,6 +144,7 @@ func createChecklist(item Checklist) Checklist {
 			Modified: time.Now(),
 		},
 		Items: []ChecklistItem{},
+		Owner: item.Owner,
 	}
 	err := dbmap.Insert(&checklist)
 	checkErr(err, "create failed")
@@ -164,7 +173,7 @@ func findChecklist(x string) Checklist {
 		err = dbmap.SelectOne(&checklist, "select * from checklist where id=$1", user_id)
 		checkErr(err, "select failed")
 	}
-	checklist.Items = findChecklistItems(checklist)
+	//checklist.Items = findChecklistItems(checklist)
 	return checklist
 }
 func findChecklistItem(parent Checklist, checklistItemId int64) ChecklistItem {
@@ -191,6 +200,7 @@ func initDb() *gorp.DbMap {
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}
 	dbmap.AddTableWithName(Checklist{}, "checklist").SetKeys(true, "Id")
 	dbmap.AddTableWithName(ChecklistItem{}, "checklist_item").SetKeys(true, "Id")
+	//err = dbmap.DropTables()
 	err = dbmap.CreateTablesIfNotExists()
 	checkErr(err, "Create tables failed for str: "+dbConnStr)
 	return dbmap
