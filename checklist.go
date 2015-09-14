@@ -2,6 +2,7 @@ package main
 
 import "github.com/gin-gonic/gin"
 import "fmt"
+// import "encoding/json"
 import "time"
 import "os"
 import "log"
@@ -21,6 +22,7 @@ type Checklist struct {
 	DatabaseGeneric
 	Items []ChecklistItem `db:"-"`
 	Owner	string     `db:"owner" json:"owner"`
+	Completed     bool      `db:"-" json:"completed"`
 }
 
 type ChecklistItem struct {
@@ -57,14 +59,19 @@ func main() {
 }
 
 func GetChecklists(c *gin.Context) {
-	var checklists []Checklist
+	var t_checklists,checklists []Checklist
 	var err error
 	if c.Params.ByName("owner")=="" {
-		_, err = dbmap.Select(&checklists, "select * from checklist")
+		_, err = dbmap.Select(&t_checklists, "select * from checklist")
 	} else {
-		_, err = dbmap.Select(&checklists, "select * from checklist where owner=$1", c.Params.ByName("owner"))
+		_, err = dbmap.Select(&t_checklists, "select * from checklist where owner=$1", c.Params.ByName("owner"))
 	}
 	checkErr(err, "select failed")
+	// populate items
+	for _, thisList := range t_checklists {
+		thisList.Items, thisList.Completed = findChecklistItems(thisList.Id)
+		checklists=append(checklists, thisList)
+	}
 	c.JSON(200, checklists)
 	// curl -i http://localhost:8080/api/v1/checklist
 }
@@ -183,11 +190,18 @@ func findChecklistItem(parent Checklist, checklistItemId int64) ChecklistItem {
 	checkErr(err, "couldnt get child")
 	return item
 }
-func findChecklistItems(parent Checklist) []ChecklistItem {
+func findChecklistItems(parentId int64) ([]ChecklistItem, bool) {
 	var items []ChecklistItem
-	_, err := dbmap.Select(&items, "select * from checklist_item where checklist_id=$1", parent.Id)
+	allDone := true
+	_, err := dbmap.Select(&items, "select * from checklist_item where checklist_id=$1", parentId)
+	for _, item := range items {
+		if !item.Completed {
+			allDone=false
+			break
+		}
+	}
 	checkErr(err, "couldnt get children")
-	return items
+	return items, allDone
 }
 
 func initDb() *gorp.DbMap {
