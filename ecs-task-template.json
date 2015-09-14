@@ -1,0 +1,43 @@
+{
+  "family": "dness-checklist",
+  "containerDefinitions": [
+    {
+      "name": "checklist-api",
+      "image": "everyonce/checklist:v_%BUILD_NUMBER%",
+      "cpu": 10,
+      "memory": 4,
+      "entryPoint": [],
+      "environment": [
+        {
+          "name": "CHECKLIST_PASS",
+          "value": "%DB_PASS%"
+        },
+        {
+          "name": "CHECKLIST_HOST",
+          "value": "%DB_HOST%"
+        },
+        {
+          "name": "CHECKLIST_DB",
+          "value": "%DB_NAME%"
+        },
+        {
+          "name": "CHECKLIST_USER",
+          "value": "%DB_USER%"
+        }
+      ],
+      "command": [],
+      "portMappings": [
+        {
+          "hostPort": 8080,
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "volumesFrom": [],
+      "links": [],
+      "mountPoints": [],
+      "essential": true
+    }
+  ],
+  "volumes": []
+}
