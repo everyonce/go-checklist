@@ -77,6 +77,7 @@ func GetChecklists(c *gin.Context) {
 }
 func GetChecklist(c *gin.Context) {
 	checklist := findChecklist(c.Params.ByName("id"))
+	checklist.Items, checklist.Completed = findChecklistItems(checklist.Id)
 	c.JSON(200, checklist)
 	// curl -i http://localhost:8080/api/v1/checklist/1
 }
@@ -100,7 +101,7 @@ func PostChecklistItem(c *gin.Context) {
 	var json ChecklistItem
 	c.Bind(&json)
 	checklist := findChecklist(c.Params.ByName("id"))
-
+	log.Println("json:", json)
 	checklistItem := createChecklistItem(json, checklist)
 	if checklistItem.Name == json.Name {
 		content := gin.H{
@@ -158,6 +159,7 @@ func createChecklist(item Checklist) Checklist {
 	return checklist
 }
 func createChecklistItem(item ChecklistItem, checklist Checklist) ChecklistItem {
+	log.Println(item)
 	checklistItem := ChecklistItem{
 		ChecklistId: checklist.Id,
 		DatabaseGeneric: DatabaseGeneric{
