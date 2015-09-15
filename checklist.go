@@ -53,7 +53,9 @@ func main() {
 	}
 
 	r.GET("/ping", func(c *gin.Context) {
-		c.String(200, "pong")
+		host, _ := os.Hostname()
+		myResponse := "pong from " + host
+		c.String(200, myResponse)
 	})
 	r.Run(":8080") // listen and serve on 0.0.0.0:8080
 }
